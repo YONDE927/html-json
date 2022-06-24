@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#ifdef 	_WIN64
+#include <windows.h>
+#define sleep Sleep
+#endif
 
 struct JsonNode {
     char* key;
@@ -62,18 +68,21 @@ char* readJsonKey(struct JsonDisc* jd){
     length = strlen(jsontext);
 
     //キーの最初を見つける
-    begin = findChar('\"', jsontext);
+    begin = findChar('\"', jsontext) + 1;
     if(begin < 0){ return NULL;}
-    end = findChar('\"', jsontext + begin);
+    end = findChar('\"', jsontext + begin) - 1 + begin;
     if(end < 0){ return NULL;}
 
     jd->offset = end + 1;
 
-    keylength = end - begin - 1;
-    key = malloc(keylength);
-    bzero(key, keylength);
-    strncpy(key, jsontext + begin + 1, keylength);
-    
+    keylength = end - begin + 1;
+    key = malloc(keylength + 1);
+    if(key == NULL){
+        return NULL;
+    }
+    memset(key, 0, keylength + 1);
+    strncpy(key, jsontext + begin, keylength);
+
     return key;
 }
 
@@ -129,14 +138,18 @@ char* readJsonValue(struct JsonDisc* jd){
     jsontext = jd->text + jd->offset;
     length = strlen(jsontext);
     //普通の文字列の場合
-    begin = findChar('\"', jsontext);
+    begin = findChar('\"', jsontext) + 1;
     if(begin < 0){ return NULL;}
-    end = findChar('\"', jsontext + begin);
+    end = findChar('\"', jsontext + begin) - 1 + begin;
     if(end < 0){ return NULL;}
     vallength = end - begin - 1;
-    value = malloc(vallength);
-    bzero(value, vallength);
-    strncpy(value, jsontext + begin + 1, vallength);
+    value = malloc(vallength + 1);
+    if (value == NULL) {
+        return NULL;
+    }
+    memset(value, 0, vallength + 1);
+    strncpy(value, jsontext + begin, vallength);
+    value[vallength] = 0;
     jd->offset = end + 1;
     return 0;
 }
@@ -145,6 +158,7 @@ int main(){
     char* samplejson = "{\n\"glossary\": \"hello\"}";
     char* key;
     struct JsonDisc* jd;
+
 
     jd = constructJsonDisc(samplejson);
     if(jd == NULL){ return -1;}

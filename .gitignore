@@ -1,3 +1,9 @@
+*vcxproj*
+x64
+Debug
+*.sln
+.vs
+
 # Prerequisites
 *.d
 

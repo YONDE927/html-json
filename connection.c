@@ -1,12 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+
+#ifdef __linux__
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <string.h>
 #include <netdb.h>
-#include <sys/types.h>
+#endif
+
+#ifdef 	_WIN64
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#endif
+
 #include "connection.h"
+
+#ifdef __linux__
 
 /*Server*/
 int getServerSock(short port){
@@ -94,3 +106,5 @@ void sigpipeHandler(int sig){
     printf("SIGPIPE\n");
     return;
 }
+
+#endif
