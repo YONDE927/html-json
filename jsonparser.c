@@ -1,18 +1,37 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+﻿#include <stdio.h>
 
 #ifdef 	_WIN64
 #include <windows.h>
 #define sleep Sleep
 #endif
 
+enum JsonNodeType {
+    JNTNONE,
+    JNTTEXT,
+    JNTJSON,
+    JNTLIST,
+};
+
+enum JsonConType {
+    JCTNONE,
+    JCTNEXT,
+    JCTEND,
+    JCTLISTEND
+};
+
+char JsonWords[] = {'\"',',', '{', '}', '[', ']',':'};
+
+struct foundSymbol {
+    int offset;
+    char word;
+};
+
 struct JsonNode {
-    char* key;
-    char* value;
+    int indent;
+    char* data;
+    struct JsonNode* key;
+    struct JsonNode* value;
     struct JsonNode* next;
-    struct JsonNode* child;
 };
 
 struct Json {
@@ -21,6 +40,7 @@ struct Json {
 
 struct JsonDisc {
     int offset;
+    int size;
     char* text;
     struct Json* json;
 };
@@ -36,6 +56,7 @@ struct JsonDisc* constructJsonDisc(char* jsontext){
 
     jd->offset = 0;
     jd->text = jsontext;
+    jd->size = strlen(jsontext);
     
     jd->json = malloc(sizeof(struct Json));
     if(jd->json == NULL){
@@ -46,123 +67,32 @@ struct JsonDisc* constructJsonDisc(char* jsontext){
     return jd;
 }
 
-int findChar(char key, char* text){
-    int length;
+struct foundSymbol* readSymbol(struct JsonDisc* jd) {
+    int i, j, found;
 
-    length = strlen(text);
-    for(int i = 0; i < length; i++){
-        if(text[i] == key){
-            return i;
+    if (jd == NULL) { return NULL; }
+    char* jsontext = jd->text + jd->offset;
+
+    struct foundSymbol* symbol = malloc(sizeof(struct foundSymbol));
+    if (symbol == NULL) { return NULL; }
+
+    found = 0;
+    for (i = 0; i < (jd->size - jd->offset); i++) {
+        if (found) { break; }
+        for (j = 0; j < 7; j++) {
+            if (jsontext[i] == JsonWords[j]) {
+                symbol->offset = i + jd->offset;
+                symbol->word = jsontext[i];
+                found = 1;
+            }
         }
     }
-    return -1;
-}
 
-char* readJsonKey(struct JsonDisc* jd){
-    int length, keylength;
-    int begin, end;
-    char* key, *jsontext;
+    jd->offset += i + 1;
 
-    jsontext = jd->text + jd->offset;
-
-    length = strlen(jsontext);
-
-    //キーの最初を見つける
-    begin = findChar('\"', jsontext) + 1;
-    if(begin < 0){ return NULL;}
-    end = findChar('\"', jsontext + begin) - 1 + begin;
-    if(end < 0){ return NULL;}
-
-    jd->offset = end + 1;
-
-    keylength = end - begin + 1;
-    key = malloc(keylength + 1);
-    if(key == NULL){
+    if (found == 0) {
+        free(symbol);
         return NULL;
     }
-    memset(key, 0, keylength + 1);
-    strncpy(key, jsontext + begin, keylength);
-
-    return key;
-}
-
-int typeJsonValue(struct JsonDisc* jd){
-    int length;
-    int flag;
-    char* jsontext;
-    
-    jsontext = jd->text + jd->offset;
-    length = strlen(jsontext);
-    //"か{のどちらかを先に見つける
-    flag = 0;
-    for(int i = 0; i < length; i++){
-        if(jsontext[i] == '\"'){
-            flag = 1;
-            break;
-        }
-        if(jsontext[i] == '{'){
-            flag = 2;
-            break;
-        }
-    }
-    return flag;
-}
-
-int typeJsonContinuousValue(struct JsonDisc* jd){
-    int length;
-    int flag;
-    char* jsontext;
-    
-    jsontext = jd->text + jd->offset;
-    length = strlen(jsontext);
-    //"か{のどちらかを先に見つける
-    flag = 0;
-    for(int i = 0; i < length; i++){
-        if(jsontext[i] == ','){
-            flag = 1;
-            break;
-        }
-        if(jsontext[i] == '}'){
-            flag = 2;
-            break;
-        }
-    }
-    return flag;
-}
-
-char* readJsonValue(struct JsonDisc* jd){
-    int length, vallength;
-    int begin, end, flag;
-    char* value, *jsontext;
-    
-    jsontext = jd->text + jd->offset;
-    length = strlen(jsontext);
-    //普通の文字列の場合
-    begin = findChar('\"', jsontext) + 1;
-    if(begin < 0){ return NULL;}
-    end = findChar('\"', jsontext + begin) - 1 + begin;
-    if(end < 0){ return NULL;}
-    vallength = end - begin - 1;
-    value = malloc(vallength + 1);
-    if (value == NULL) {
-        return NULL;
-    }
-    memset(value, 0, vallength + 1);
-    strncpy(value, jsontext + begin, vallength);
-    value[vallength] = 0;
-    jd->offset = end + 1;
-    return 0;
-}
-
-int main(){
-    char* samplejson = "{\n\"glossary\": \"hello\"}";
-    char* key;
-    struct JsonDisc* jd;
-
-
-    jd = constructJsonDisc(samplejson);
-    if(jd == NULL){ return -1;}
-    key = readJsonKey(jd);
-    printf("key: %s\n", key);
-    return 0;
+    return symbol;
 }
